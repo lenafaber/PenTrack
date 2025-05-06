@@ -3,6 +3,7 @@
 library(dplyr)
 library(tidyr)
 library(zoo)
+library(scales)
 
 #data
 tracks <- read.csv("data/tracks_2.csv")
@@ -131,29 +132,44 @@ ggplot(alignment_per_frame, aes(x = frame)) +
   geom_line(aes(y = alignment), color = "grey80") +
   geom_line(aes(y = alignment_smooth), color = "steelblue", size = 1) +
   theme_minimal() +
-  labs(title = "Smoothed Group Alignment Over Time",
+  labs(title = "",
        x = "Frame", y = "Alignment") +
   ylim(c(0,1))
 
 #overlay
-library(patchwork)  # clean layout tool
+y_min <- 150
+y_max <- 250
 
-# Your two plots (define them as objects)
-p1 <- ggplot(alignment_per_frame, aes(x = frame)) +
-  geom_line(aes(y = alignment), color = "grey80") +
-  geom_line(aes(y = alignment_smooth), color = "steelblue", size = 1) +
-  theme_minimal() +
-  labs(title = "Smoothed Group Alignment Over Time",
-       x = "Frame", y = "Alignment") +
-  ylim(0, 1)
+alignment_per_frame$alignment_rescaled <- rescale(alignment_per_frame$alignment, to = c(y_min, y_max))
+alignment_per_frame$alignment_smooth_rescaled <- rescale(alignment_per_frame$alignment_smooth, to = c(y_min, y_max))
 
-p2 <- ggplot(track_data, aes(x = frame, y = x, color = penguin, group = penguin)) +
-  geom_path(size = 1) +
-  geom_point(size = 2, alpha = 0.6) +
+# Function to reverse rescaling (for secondary axis)
+inv_rescale <- function(y) rescale(y, from = c(y_min, y_max), to = c(0, 1))
+
+# Plot
+ggplot() +
+  # Overlay rescaled alignment
+  geom_line(data = alignment_per_frame, 
+            aes(x = frame,y = alignment_smooth_rescaled), 
+            color = "coral", size = 1.2, alpha = 0.6) +
+  # Penguin trajectories
+  geom_path(data = track_data, aes(x = frame, y = y, color = penguin, group = penguin), size = 1) +
+  geom_point(data = track_data, aes(x = frame, y = y, color = penguin, group = penguin), size = 2, alpha = 0.6) +
+  
+
+  
   scale_x_continuous(limits = c(0, 300)) +
+  scale_y_continuous(
+    name = "Penguin Y Coordinate",
+    limits = c(y_min, y_max),
+    sec.axis = sec_axis(~ inv_rescale(.), 
+                        name = "Alignment") 
+  ) +
   scale_color_viridis_d() +
   theme_minimal() +
-  labs(title = "Penguin Tracking", x = "Frame", y = "x Coordinate", color = "Penguin")
-
-# Stack them
-p2 / p1  # (tracking plot above alignment plot)
+  labs(title = "",
+       x = "Frame", color = "Penguin") +
+  theme(
+    axis.title.y.right = element_text(color = "black"),
+    axis.text.y.right = element_text(color = "black")
+  )
