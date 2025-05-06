@@ -43,12 +43,17 @@ track_data <- track_data %>%
 track_data |> 
   filter(frame %in% 0:300) |>  
   ggplot(aes(x = x, y = y, color = penguin, group = penguin)) +
-  geom_path(size = 1) +  # Draws the path of each penguin
-  geom_point(size = 2, alpha = 0.6) +  # Adds points for each frame
-  scale_color_viridis_d() +  
+  geom_path(size = 1) +  
+  #geom_point(size = 2, alpha = 0.6) +  
+  scale_color_viridis_d() + 
+  scale_y_reverse(limits = c(250, 125)) +  # fixed here
   theme_minimal() +
-  labs(title = "Penguin Tracking (First 500 Frames)", x = "X Coordinate", y = "Y Coordinate", color = "Penguin") +
-  coord_fixed()
+  labs(title = "", 
+       x = "X Coordinate", 
+       y = "Y Coordinate", 
+       color = "Penguin") +
+  coord_fixed() +
+  xlim(250, 500)
 
 #plot movement over time
 ggplot(track_data, aes(x = frame, y = y, color = penguin, group = penguin)) +

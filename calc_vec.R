@@ -2,6 +2,7 @@
 #packages
 library(dplyr)
 library(tidyr)
+library(zoo)
 
 #data
 tracks <- read.csv("data/tracks_2.csv")
@@ -87,3 +88,72 @@ gganim <- ggplot(arrow_data, aes(x = x, y = y, color = penguin, group = penguin)
 # Save as GIF
 anim_save("penguin_orientation_vectors.gif", gganim, renderer = gifski_renderer())
 
+# plot vectors over time
+arrow_data |> 
+  filter(frame %in% 0:300) |>  
+  ggplot(aes(x = x, y = y)) +
+  geom_spoke(
+    aes(angle = atan2(dy, dx), radius = sqrt(dx^2 + dy^2) * 0.1, color = frame),
+    arrow = arrow(length = unit(0.15, "cm")),
+    size = 0.7
+  ) +
+  scale_color_viridis_c() +
+  coord_fixed() +
+  scale_y_reverse(limits = c(250,125)) +
+  xlim(c(250,500)) +
+  theme_minimal() +
+  labs(title = "", x = "X", y = "Y", color = "Frame")
+
+# calc alignment
+alignment_per_frame <- arrow_data %>%
+  filter(frame %in% 0:300) %>% 
+  group_by(frame) %>%
+  summarise(
+    mean_dx = mean(dx / sqrt(dx^2 + dy^2), na.rm = TRUE),
+    mean_dy = mean(dy / sqrt(dx^2 + dy^2), na.rm = TRUE),
+    alignment = sqrt(mean_dx^2 + mean_dy^2),
+    n_penguins = n()
+  )
+ggplot(alignment_per_frame, aes(x = frame, y = alignment)) +
+  geom_point(color = "coral") +
+  geom_smooth(size = 1, color = "steelblue") +
+  theme_minimal() +
+  labs(title = "",
+       x = "Frame",
+       y = "Alignment") +
+  ylim(c(0,1))
+
+# smoothing 
+alignment_per_frame <- alignment_per_frame %>%
+  mutate(alignment_smooth = rollmean(alignment, k = 10, fill = NA))
+
+ggplot(alignment_per_frame, aes(x = frame)) +
+  geom_line(aes(y = alignment), color = "grey80") +
+  geom_line(aes(y = alignment_smooth), color = "steelblue", size = 1) +
+  theme_minimal() +
+  labs(title = "Smoothed Group Alignment Over Time",
+       x = "Frame", y = "Alignment") +
+  ylim(c(0,1))
+
+#overlay
+library(patchwork)  # clean layout tool
+
+# Your two plots (define them as objects)
+p1 <- ggplot(alignment_per_frame, aes(x = frame)) +
+  geom_line(aes(y = alignment), color = "grey80") +
+  geom_line(aes(y = alignment_smooth), color = "steelblue", size = 1) +
+  theme_minimal() +
+  labs(title = "Smoothed Group Alignment Over Time",
+       x = "Frame", y = "Alignment") +
+  ylim(0, 1)
+
+p2 <- ggplot(track_data, aes(x = frame, y = x, color = penguin, group = penguin)) +
+  geom_path(size = 1) +
+  geom_point(size = 2, alpha = 0.6) +
+  scale_x_continuous(limits = c(0, 300)) +
+  scale_color_viridis_d() +
+  theme_minimal() +
+  labs(title = "Penguin Tracking", x = "Frame", y = "x Coordinate", color = "Penguin")
+
+# Stack them
+p2 / p1  # (tracking plot above alignment plot)
